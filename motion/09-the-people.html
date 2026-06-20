@@ -24,7 +24,7 @@
 <body>
 <main>
   <canvas id="c"></canvas>
-  <div class="cap"><span class="num">09</span><b>The people</b> — Experience matters more, not less. The exception the machine missed becomes the classroom.</div>
+  <div class="cap"><span class="num">09</span><b>The people</b> — Experience matters more, not less. The exception the machine missed is how the associate counsel learns.</div>
   <button class="rec" id="rec">● record 10s clip</button>
 </main>
 <script>
@@ -45,7 +45,7 @@ function ring(ctx,x,y,r,color,a){ctx.save();ctx.globalAlpha=a==null?1:a;ctx.stro
 function draw(ctx,W,H,t){
   const mx=W*0.11, my=H*0.50;          // machine
   const sx=W*0.47, sy=H*0.23;          // senior (large, top)
-  const nx=W*0.84, ny=H*0.74;          // new lawyer (lower right)
+  const nx=W*0.80, ny=H*0.74;          // associate counsel (lower right)
   const hold=sy+26;                    // where the exception sits at the senior
 
   // faint guide path: machine -> senior -> new
@@ -82,18 +82,18 @@ function draw(ctx,W,H,t){
   // senior: large and central (experience matters more)
   const pulse=(ep>=0.36&&ep<0.54)?Math.sin(b2*Math.PI):0;
   person(ctx,sx,sy,17+pulse*3);
-  mono(ctx,'SENIOR',sx,sy-25,'center',INK,9);
+  mono(ctx,'SENIOR COUNSEL',sx,sy-25,'center',INK,8);
   if(pulse>0.05){ ring(ctx,sx,sy,23+pulse*6,RED,0.7*pulse); mono(ctx,'corrects',sx,hold+18,'center',RED,8); }
 
   // the exception the machine missed (craft); gains a check once corrected
   ctx.save(); ctx.globalAlpha=dAlpha; doc(ctx,dx,dy,6,'craft',corrected); ctx.restore();
   if(ep<0.32){ ctx.save(); ctx.globalAlpha=dAlpha*0.9; mono(ctx,'exception',dx+12,dy,'left',SOFT,8); ctx.restore(); }
 
-  // new lawyer: absorbs the corrected exception (the classroom)
+  // associate counsel: learns from the corrected exception
   const pop=b4>0?Math.sin(b4*Math.PI):0;
   person(ctx,nx,ny,10+pop*2);
-  mono(ctx,'NEW',nx,ny+22,'center',INK,9);
-  mono(ctx,'the classroom',nx,ny-20,'center',pop>0.2?RED:SOFT,8);
+  mono(ctx,'ASSOCIATE COUNSEL',nx,ny+22,'center',INK,8);
+  mono(ctx,'learns',nx,ny-20,'center',pop>0.2?RED:SOFT,8);
   if(pop>0.2) ring(ctx,nx,ny,15+pop*5,RED,0.6*pop);
 }
 
