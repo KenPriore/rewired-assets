@@ -43,57 +43,57 @@ function dline(ctx,x1,y1,x2,y2,color,w){ctx.save();ctx.strokeStyle=color||SOFT;c
 function ring(ctx,x,y,r,color,a){ctx.save();ctx.globalAlpha=a==null?1:a;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.stroke();ctx.restore();}
 
 function draw(ctx,W,H,t){
-  const mx=W*0.12, my=H*0.52;          // machine
-  const sx=W*0.50, sy=H*0.25;          // senior (large, top center)
-  const nx=W*0.85, ny=H*0.70;          // new lawyer (bottom right)
+  const mx=W*0.11, my=H*0.50;          // machine
+  const sx=W*0.47, sy=H*0.23;          // senior (large, top)
+  const nx=W*0.84, ny=H*0.74;          // new lawyer (lower right)
+  const hold=sy+26;                    // where the exception sits at the senior
 
   // faint guide path: machine -> senior -> new
-  dline(ctx, mx+16, my-6, sx-20, sy+12, LINE, 1.2);
-  dline(ctx, sx+20, sy+12, nx-14, ny-12, LINE, 1.2);
+  dline(ctx, mx+16, my-6, sx-18, hold-10, LINE, 1.2);
+  dline(ctx, sx+18, hold-6, nx-14, ny-14, LINE, 1.2);
 
   // commodity stream the machine handles on its own
   const N=4, sp=1.15;
   for(let i=0;i<N;i++){
-    const cp=saw(t/sp+i/N,1), cx=lerp(mx+18,W*0.97,cp);
+    const cp=saw(t/sp+i/N,1), cx=lerp(mx+18,W*0.90,cp);
     const fade=Math.min(1,cp*6)*Math.min(1,(1-cp)*6);
-    ctx.save(); ctx.globalAlpha=0.8*fade; doc(ctx,cx,my,5,'commodity',cp>0.5); ctx.restore();
+    ctx.save(); ctx.globalAlpha=0.75*fade; doc(ctx,cx,my,5,'commodity',cp>0.5); ctx.restore();
   }
-  mono(ctx,'COMMODITY',mx+18,my+20,'left',SOFT,8);
-  mono(ctx,'the machine handles',W*0.97,my+20,'right',SOFT,8);
+  mono(ctx,'COMMODITY',mx+18,my+18,'left',SOFT,8);
 
-  machine(ctx,mx,my,13,t);
+  machine(ctx,mx,my,12,t);
 
   // exception cycle: machine -> senior corrects -> new learns
-  const P=4.0, ep=saw(t,P);
+  const P=4.2, ep=saw(t,P);
   const b1=clamp(0,(ep-0.04)/0.30,1);
-  const b2=clamp(0,(ep-0.34)/0.16,1);
-  const b3=clamp(0,(ep-0.52)/0.32,1);
+  const b2=clamp(0,(ep-0.36)/0.16,1);
+  const b3=clamp(0,(ep-0.54)/0.30,1);
   const b4=clamp(0,(ep-0.86)/0.12,1);
 
   let dx,dy,corrected=false;
-  if(ep<0.34){ dx=lerp(mx+14,sx,easeInOut(b1)); dy=lerp(my-6,sy+12,easeInOut(b1)); }
-  else if(ep<0.52){ dx=sx; dy=sy+12; }
-  else { dx=lerp(sx,nx,easeInOut(b3)); dy=lerp(sy+12,ny-12,easeInOut(b3)); corrected=true; }
+  if(ep<0.36){ dx=lerp(mx+14,sx,easeInOut(b1)); dy=lerp(my-4,hold,easeInOut(b1)); }
+  else if(ep<0.54){ dx=sx; dy=hold; }
+  else { dx=lerp(sx,nx,easeInOut(b3)); dy=lerp(hold,ny-14,easeInOut(b3)); corrected=true; }
 
   let dAlpha=1;
   if(ep<0.04) dAlpha=ep/0.04;
   else if(ep>0.86) dAlpha=Math.max(0,1-(ep-0.86)/0.14);
 
   // senior: large and central (experience matters more)
-  const pulse=(ep>=0.34&&ep<0.52)?Math.sin(b2*Math.PI):0;
-  person(ctx,sx,sy,18+pulse*3);
-  mono(ctx,'SENIOR',sx,sy-26,'center',INK,9);
-  if(pulse>0.05){ ring(ctx,sx,sy,24+pulse*6,RED,0.7*pulse); mono(ctx,'corrects',sx,sy+30,'center',RED,8); }
+  const pulse=(ep>=0.36&&ep<0.54)?Math.sin(b2*Math.PI):0;
+  person(ctx,sx,sy,17+pulse*3);
+  mono(ctx,'SENIOR',sx,sy-25,'center',INK,9);
+  if(pulse>0.05){ ring(ctx,sx,sy,23+pulse*6,RED,0.7*pulse); mono(ctx,'corrects',sx,hold+18,'center',RED,8); }
 
-  // the exception the machine missed (craft); carries a check once corrected
+  // the exception the machine missed (craft); gains a check once corrected
   ctx.save(); ctx.globalAlpha=dAlpha; doc(ctx,dx,dy,6,'craft',corrected); ctx.restore();
-  if(ep<0.30){ ctx.save(); ctx.globalAlpha=dAlpha; mono(ctx,'exception',dx,dy-13,'center',SOFT,8); ctx.restore(); }
+  if(ep<0.32){ ctx.save(); ctx.globalAlpha=dAlpha*0.9; mono(ctx,'exception',dx+12,dy,'left',SOFT,8); ctx.restore(); }
 
   // new lawyer: absorbs the corrected exception (the classroom)
   const pop=b4>0?Math.sin(b4*Math.PI):0;
   person(ctx,nx,ny,10+pop*2);
   mono(ctx,'NEW',nx,ny+22,'center',INK,9);
-  mono(ctx,'the classroom',nx,ny-22,'center',pop>0.2?RED:SOFT,8);
+  mono(ctx,'the classroom',nx,ny-20,'center',pop>0.2?RED:SOFT,8);
   if(pop>0.2) ring(ctx,nx,ny,15+pop*5,RED,0.6*pop);
 }
 
