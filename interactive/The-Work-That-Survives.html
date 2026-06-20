@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Work That Survives — Interactive</title>
+<style>
+  :root{
+    --sp-white:#FFFFFF; --sp-black:#000000;
+    --sp-red:#FF0000; --sp-blue:#0057B8; --sp-yellow:#FFCC00;
+    --sp-font:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    --display:clamp(2.4rem,7.5vw,5.6rem);
+    --head:clamp(1.4rem,3.6vw,2.6rem);
+    --body:clamp(.92rem,1.5vw,1.12rem);
+    --label:.72rem;
+    --t:300ms ease;
+    --pad:clamp(20px,4vw,56px);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;border-radius:0!important}
+  html,body{height:100%;width:100%;overflow:hidden}
+  body{
+    font-family:var(--sp-font);font-weight:300;color:var(--sp-black);
+    background:var(--sp-white);-webkit-font-smoothing:antialiased;
+  }
+  .stage{position:fixed;inset:0;bottom:56px}
+  .view{
+    position:absolute;inset:0;opacity:0;pointer-events:none;
+    transition:opacity var(--t);padding:var(--pad);
+    display:flex;flex-direction:column;
+  }
+  .view.active{opacity:1;pointer-events:auto}
+  .runhead{
+    font-size:var(--label);font-weight:300;letter-spacing:.14em;
+    text-transform:uppercase;border-bottom:1px solid var(--sp-black);
+    padding-bottom:8px;margin-bottom:auto;display:flex;justify-content:space-between;gap:12px
+  }
+  .view.inv .runhead{border-color:var(--sp-white)}
+  h1,h2{font-weight:900;line-height:.98;letter-spacing:-.01em}
+  .display{font-size:var(--display);text-transform:none}
+  .head{font-size:var(--head)}
+  p{font-size:var(--body);line-height:1.5;max-width:42ch}
+  .label{font-size:var(--label);letter-spacing:.14em;text-transform:uppercase;font-weight:300}
+
+  /* entrance animation */
+  .anim{opacity:0;transform:translateY(16px)}
+  .view.play .anim{animation:rise .6s cubic-bezier(.2,.7,.2,1) forwards}
+  .d1{animation-delay:.06s}.d2{animation-delay:.14s}.d3{animation-delay:.24s}
+  .d4{animation-delay:.36s}.d5{animation-delay:.5s}
+  @keyframes rise{to{opacity:1;transform:none}}
+
+  /* ---- nav ---- */
+  .nav{
+    position:fixed;left:0;right:0;bottom:0;height:56px;background:var(--sp-black);
+    color:var(--sp-white);display:flex;align-items:stretch;z-index:20
+  }
+  .nav button{
+    background:none;border:0;color:var(--sp-white);font-family:var(--sp-font);
+    font-size:var(--label);letter-spacing:.1em;text-transform:uppercase;font-weight:300;
+    padding:0 14px;cursor:pointer;opacity:.55;transition:opacity var(--t);
+    display:flex;align-items:center;gap:8px;white-space:nowrap
+  }
+  .nav button:hover{opacity:.85}
+  .nav button.on{opacity:1}
+  .nav button.on .num{box-shadow:inset 0 -3px 0 var(--sp-red)}
+  .nav .num{font-weight:700;padding-bottom:3px}
+  .nav .ttl{opacity:.8}
+  .nav .spacer{flex:1}
+  .nav .arrow{font-size:1.1rem;font-weight:700;padding:0 18px}
+  @media(max-width:760px){ .nav .ttl{display:none} .nav button{padding:0 10px} }
+
+  /* ---- cover ---- */
+  .cover-grid{flex:1;display:grid;grid-template-columns:repeat(6,1fr);align-items:center;gap:0;position:relative}
+  .cover-text{grid-column:1/5;z-index:2}
+  .cover-text .kicker{margin-bottom:18px;display:inline-block}
+  .cover-text .subtitle{margin-top:22px;font-size:var(--body);max-width:36ch}
+  .cover-text .datev{margin-top:26px;opacity:.6}
+  .cover-block{grid-column:5/7;justify-self:end;align-self:stretch;width:100%;background:var(--sp-red);
+    transform:scaleX(0);transform-origin:right;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+  .view.play .cover-block{transform:scaleX(1)}
+  @media(max-width:760px){
+    .cover-text{grid-column:1/7}
+    .cover-block{position:absolute;top:0;right:0;width:34%;height:100%;grid-column:auto}
+  }
+
+  /* ---- generic split layout for data views ---- */
+  .split{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);
+    gap:clamp(16px,3vw,48px);align-items:center;padding-top:18px}
+  .split .lede h2{margin-bottom:16px}
+  .split .lede .tag{display:inline-block;margin-bottom:14px;color:var(--sp-red)}
+  .split .viz{min-width:0;width:100%}
+  svg{width:100%;height:auto;display:block;overflow:visible}
+  .svg-lbl{font-family:var(--sp-font);font-size:13px;font-weight:300;letter-spacing:.12em;text-transform:uppercase}
+  .svg-num{font-family:var(--sp-font);font-weight:700}
+  @media(max-width:760px){ .split{grid-template-columns:1fr;gap:18px} }
+
+  /* ---- three kinds (lanes) ---- */
+  .lanes{display:flex;flex-direction:column;gap:14px;margin-top:8px}
+  .lane{display:grid;grid-template-columns:170px 1fr;gap:18px;align-items:center;cursor:pointer;
+    transition:opacity var(--t)}
+  .lanes.dimmed .lane:not(.sel){opacity:.32}
+  .lane-name{font-weight:900;font-size:clamp(1.1rem,2.2vw,1.7rem);line-height:1}
+  .lane-name small{display:block;font-weight:300;font-size:var(--label);letter-spacing:.12em;
+    text-transform:uppercase;margin-top:6px;opacity:.7}
+  .lane-track{position:relative;height:46px;background:#f1f1f1}
+  .lane-fill{position:absolute;inset:0;transform:scaleX(0);transform-origin:left;
+    transition:transform .7s cubic-bezier(.2,.7,.2,1)}
+  .view.play .lane-fill{transform:scaleX(1)}
+  .lane.c .lane-fill{background:var(--sp-blue)}
+  .lane.r .lane-fill{background:var(--sp-yellow)}
+  .lane.u .lane-fill{background:var(--sp-red)}
+  .lane-human{position:absolute;width:16px;height:16px;background:var(--sp-black);
+    opacity:0;transition:opacity .4s,transform .4s;z-index:3}
+  .lane-human::after{content:attr(data-p);position:absolute;left:50%;transform:translateX(-50%);
+    top:-18px;font-size:10px;letter-spacing:.1em;font-weight:700}
+  .view.play .lane-human{opacity:1}
+  .lane.c .lane-human{right:14px;top:-24px}
+  .lane.r .lane-human{right:14px;top:15px}
+  .lane.u .lane-human{left:calc(50% - 8px);top:15px}
+  .lane-detail{margin-top:14px;min-height:3.4em;border-top:1px solid var(--sp-black);padding-top:12px}
+  .lane-detail p{max-width:64ch}
+  .drift{margin-top:10px;font-size:var(--label);letter-spacing:.06em;color:var(--sp-blue);
+    text-transform:none;font-style:normal}
+  .drift b{color:var(--sp-red);font-weight:700}
+
+  /* ---- tech bars ---- */
+  .bars{display:flex;gap:clamp(14px,3vw,40px);align-items:flex-end;height:300px;margin-top:10px}
+  .barcol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;position:relative}
+  .bartrack{position:relative;height:240px;border-bottom:2px solid var(--sp-black)}
+  .bar{position:absolute;left:18%;width:64%;bottom:0;height:0;transition:height 1.2s cubic-bezier(.2,.7,.2,1)}
+  .bar.blue{background:var(--sp-blue)} .bar.red{background:var(--sp-red)}
+  .ghost{position:absolute;left:0;right:0;border-top:1px dashed var(--sp-black);opacity:.6}
+  .ghost span{position:absolute;right:0;top:-16px;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+  .barnum{font-weight:700;font-size:clamp(1.3rem,3vw,2.2rem);margin-bottom:4px}
+  .barcap{font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;margin-top:10px;opacity:.8;line-height:1.3}
+  .metr{margin-top:26px}
+  .metr .seg{height:16px;background:var(--sp-yellow);margin-bottom:8px;width:0;
+    transition:width .7s cubic-bezier(.2,.7,.2,1);display:flex;align-items:center}
+  .metr .seg span{font-size:10px;font-weight:700;color:var(--sp-black);padding-left:8px;white-space:nowrap;opacity:0;transition:opacity .3s .3s}
+  .view.play .metr .seg span{opacity:1}
+  .metr .seg.s1{transition-delay:.1s} .metr .seg.s2{transition-delay:.3s}
+  .metr .seg.s3{transition-delay:.5s} .metr .seg.s4{transition-delay:.7s}
+
+  /* ---- tripwire ---- */
+  .twwrap{flex:1;display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:clamp(16px,3vw,40px);align-items:center;padding-top:14px}
+  .ctl{margin-bottom:22px}
+  .ctl .label{display:block;margin-bottom:10px}
+  .meter{display:flex;gap:6px;margin-bottom:10px}
+  .meter i{width:24px;height:24px;border:1.5px solid var(--sp-black);display:block;transition:background var(--t)}
+  .meter i.on{background:var(--sp-black)}
+  .step{display:flex;gap:8px;align-items:center}
+  .step button,.wire{font-family:var(--sp-font);font-weight:700;cursor:pointer;border:1.5px solid var(--sp-black);
+    background:none;padding:8px 12px;font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;transition:all var(--t)}
+  .step button{width:38px;height:38px;font-size:1.1rem;display:flex;align-items:center;justify-content:center}
+  .step .val{font-weight:700;min-width:2ch;text-align:center}
+  .wires{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+  .wire{text-align:left}
+  .wire.on{background:var(--sp-red);color:var(--sp-white);border-color:var(--sp-red)}
+  .twstatus{margin-top:18px;border-top:1px solid var(--sp-black);padding-top:12px;min-height:4.5em}
+  .twstatus b{font-weight:700}
+  @media(max-width:760px){ .twwrap{grid-template-columns:1fr} }
+
+  /* ---- dial ---- */
+  .dialwrap{flex:1;display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:clamp(18px,4vw,56px);align-items:center;padding-top:14px}
+  .barsrow{display:flex;gap:34px;align-items:flex-end}
+  .dcol{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .dtrack{position:relative;width:84px;height:240px;border-bottom:2px solid var(--sp-black);background:#f4f4f4}
+  .dfill{position:absolute;left:0;right:0;bottom:0}
+  .dfill.cap{background:var(--sp-blue)} .dfill.capgray{background:#c9c9c9} .dfill.rec{background:var(--sp-yellow)}
+  .captick{position:absolute;left:-6px;right:-6px;height:0;border-top:2px solid var(--sp-red)}
+  .dcol .label{text-align:center}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:84px;height:2px;background:var(--sp-black);outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:var(--sp-red);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;background:var(--sp-red);border:0;cursor:pointer}
+  .readout{font-weight:900;font-size:clamp(2.6rem,7vw,4.6rem);line-height:1}
+  .readout small{display:block;font-size:var(--label);font-weight:300;letter-spacing:.14em;text-transform:uppercase;margin-top:8px}
+  .dbtns{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+  .dbtns button{font-family:var(--sp-font);font-weight:700;cursor:pointer;border:1.5px solid var(--sp-black);
+    background:none;padding:10px 14px;font-size:var(--label);letter-spacing:.08em;text-transform:uppercase;transition:all var(--t)}
+  .dbtns button:hover{background:var(--sp-black);color:var(--sp-white)}
+  .dcap{margin-top:16px;min-height:3em}
+  @media(max-width:760px){ .dialwrap{grid-template-columns:1fr} }
+
+  /* ---- closing ---- */
+  .view.closing{background:var(--sp-black);color:var(--sp-white)}
+  .closing .close-grid{flex:1;display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(6,1fr)}
+  .close-block{grid-column:1/3;grid-row:5/7;background:var(--sp-blue);transform:translateY(20px);opacity:0;
+    transition:opacity .6s,transform .6s}
+  .view.play .close-block{opacity:1;transform:none}
+  .close-text{grid-column:3/7;grid-row:1/5;align-self:center}
+  .close-text h2{font-size:clamp(1.6rem,4.4vw,3.2rem);max-width:18ch}
+  .close-text p{margin-top:22px;opacity:.8;max-width:40ch}
+  .close-text .label{margin-top:30px;opacity:.6}
+  @media(max-width:760px){ .close-text{grid-column:1/7;grid-row:1/5} .close-block{grid-column:1/4} }
+
+  .hint{position:fixed;right:14px;bottom:64px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    opacity:.4;z-index:5}
+  @media(prefers-reduced-motion:reduce){
+    .anim{opacity:1;transform:none;animation:none!important}
+    *{transition-duration:.001ms!important}
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- 0 COVER -->
+  <section class="view cover" data-view="0">
+    <div class="runhead"><span>The Work That Survives</span><span>00 · Cover</span></div>
+    <div class="cover-grid">
+      <div class="cover-text">
+        <span class="kicker label anim d1">An interactive companion</span>
+        <h1 class="display anim d2">The Work<br>That Survives</h1>
+        <p class="subtitle anim d3">Judgment, duty, and the shape of an AI-native legal department.</p>
+        <div class="label datev anim d4">June 2026 · use the arrow keys</div>
+      </div>
+      <div class="cover-block" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- 1 FLOOR -->
+  <section class="view" data-view="1">
+    <div class="runhead"><span>The Work That Survives</span><span>01 · The floor rises</span></div>
+    <div class="split">
+      <div class="lede">
+        <span class="tag label anim d1">The premise</span>
+        <h2 class="head anim d2">When execution gets cheap, the floor rises.</h2>
+        <p class="anim d3">Competent work product is now fast and close to free. As that floor rises, the work just above it stops being where a lawyer earns the seat. What stays above the line is judgment, taste, and the duty to answer for the result.</p>
+      </div>
+      <div class="viz anim d3">
+        <svg id="floorSvg" viewBox="0 0 640 420" role="img" aria-label="A rising floor of cheap production, leaving a band of judgment and duty above it">
+          <rect id="surviveBand" x="70" y="30" width="540" height="320" fill="#FF0000"></rect>
+          <rect id="floorRegion" x="70" y="350" width="540" height="30" fill="#0057B8"></rect>
+          <rect class="sq" data-y="110" x="150" y="98" width="22" height="22" fill="#000"></rect>
+          <rect class="sq" data-y="190" x="320" y="178" width="22" height="22" fill="#000"></rect>
+          <rect class="sq" data-y="262" x="470" y="250" width="22" height="22" fill="#000"></rect>
+          <line id="floorLine" x1="70" y1="350" x2="610" y2="350" stroke="#000" stroke-width="2"></line>
+          <text id="surviveLbl" class="svg-lbl" x="82" y="60" fill="#fff">Judgment + the duty to answer</text>
+          <text id="prodLbl" class="svg-lbl" x="82" y="372" fill="#fff">Competent production · near free</text>
+          <text id="floorLbl" class="svg-lbl" x="540" y="344" fill="#000" text-anchor="end">The floor &#8593;</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 THREE KINDS -->
+  <section class="view" data-view="2">
+    <div class="runhead"><span>The Work That Survives</span><span>02 · Three kinds of work</span></div>
+    <div style="padding-top:14px">
+      <span class="tag label anim d1" style="color:var(--sp-red)">Click a layer</span>
+      <h2 class="head anim d2" style="margin:10px 0 18px">Legal work is not one thing. It is three.</h2>
+      <div class="lanes anim d3" id="lanes">
+        <div class="lane c" data-i="0">
+          <div class="lane-name">Commodity<small>Over the loop</small></div>
+          <div class="lane-track"><div class="lane-fill"></div><div class="lane-human" data-p="OVER"></div></div>
+        </div>
+        <div class="lane r" data-i="1">
+          <div class="lane-name">Craft<small>On the loop</small></div>
+          <div class="lane-track"><div class="lane-fill"></div><div class="lane-human" data-p="ON"></div></div>
+        </div>
+        <div class="lane u" data-i="2">
+          <div class="lane-name">Custody<small>In the loop</small></div>
+          <div class="lane-track"><div class="lane-fill"></div><div class="lane-human" data-p="IN"></div></div>
+        </div>
+      </div>
+      <div class="lane-detail anim d4"><p id="laneDetail">Commodity is high volume with one defensible answer. You wrote the standard, turned it on, and sample the output. You were not there for any one document, and you can still answer for all of them.</p></div>
+      <div class="drift anim d5" id="drift">The line between commodity and craft is not fixed. <b>It moves left as work settles</b>, and you move up to the next frontier.</div>
+    </div>
+  </section>
+
+  <!-- 3 TECH -->
+  <section class="view" data-view="3">
+    <div class="runhead"><span>The Work That Survives</span><span>03 · Where the technology is</span></div>
+    <div class="split">
+      <div class="lede">
+        <span class="tag label anim d1">June 2026, honestly</span>
+        <h2 class="head anim d2">Strong on bounded work. Unreliable across long chains.</h2>
+        <p class="anim d3">The value is not how fast it produces. It is how fast a competent person can tell whether the output is right. That is why expertise becomes more valuable, not less.</p>
+      </div>
+      <div class="viz anim d3">
+        <div class="bars">
+          <div class="barcol">
+            <div class="bartrack">
+              <div class="ghost" id="gdpvalGhost" style="bottom:12%"><span>a year ago ~12%</span></div>
+              <div class="bar blue" id="gdpvalBar"></div>
+            </div>
+            <div class="barcap"><span class="barnum">48%</span><br>judged as good as an expert<br>GDPval</div>
+          </div>
+          <div class="barcol">
+            <div class="bartrack">
+              <div class="bar red" id="harveyBar"></div>
+            </div>
+            <div class="barcap"><span class="barnum">&lt;10%</span><br>complex legal tasks finished end to end<br>Harvey LAB</div>
+          </div>
+        </div>
+        <div class="metr">
+          <div class="label" style="margin-bottom:10px">Task horizon, doubling about every 7 months · METR</div>
+          <div class="seg s1" style="--w:14%"><span>~2 min</span></div>
+          <div class="seg s2" style="--w:30%"><span>~8 min</span></div>
+          <div class="seg s3" style="--w:58%"><span>~30 min</span></div>
+          <div class="seg s4" style="--w:96%"><span>~1 to 2 hr, at 50% reliability</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 TRIPWIRE -->
+  <section class="view" data-view="4">
+    <div class="runhead"><span>The Work That Survives</span><span>04 · The trip-wire</span></div>
+    <div class="twwrap">
+      <div class="lede">
+        <span class="tag label anim d1" style="color:var(--sp-red)">Sort a matter</span>
+        <h2 class="head anim d2" style="margin:8px 0 18px">Judgment is a sum. Duty is a trip-wire.</h2>
+        <div class="ctl anim d3">
+          <span class="label">How much judgment</span>
+          <div class="meter" id="meter"></div>
+          <div class="step">
+            <button id="minus" aria-label="less judgment">&#8722;</button>
+            <span class="val" id="scoreVal">2</span>
+            <button id="plus" aria-label="more judgment">+</button>
+          </div>
+        </div>
+        <div class="ctl anim d4">
+          <span class="label">Duty trip-wires</span>
+          <div class="wires" id="wires">
+            <button class="wire" data-w="0">Binds the company</button>
+            <button class="wire" data-w="1">Privilege</button>
+            <button class="wire" data-w="2">A severe tail</button>
+          </div>
+        </div>
+        <div class="twstatus anim d5"><p id="twStatus"></p></div>
+      </div>
+      <div class="viz anim d3">
+        <svg id="twSvg" viewBox="0 0 680 360" role="img" aria-label="A matter routed to a lane">
+          <rect x="380" y="30"  width="250" height="80" fill="#FF0000"></rect>
+          <rect x="380" y="140" width="250" height="80" fill="#FFCC00"></rect>
+          <rect x="380" y="250" width="250" height="80" fill="#0057B8"></rect>
+          <text class="svg-lbl" x="365" y="66"  text-anchor="end" fill="#000">Custody</text>
+          <text class="svg-lbl" x="365" y="84"  text-anchor="end" fill="#000" opacity=".6">in the loop</text>
+          <text class="svg-lbl" x="365" y="176" text-anchor="end" fill="#000">Craft</text>
+          <text class="svg-lbl" x="365" y="194" text-anchor="end" fill="#000" opacity=".6">on the loop</text>
+          <text class="svg-lbl" x="365" y="286" text-anchor="end" fill="#000">Commodity</text>
+          <text class="svg-lbl" x="365" y="304" text-anchor="end" fill="#000" opacity=".6">over the loop</text>
+          <line id="twWire" x1="60" y1="184" x2="60" y2="184" stroke="#FF0000" stroke-width="3" stroke-dasharray="6 5" opacity="0"></line>
+          <rect id="twToken" x="44" y="170" width="28" height="28" fill="#000"></rect>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 DIAL -->
+  <section class="view" data-view="5">
+    <div class="runhead"><span>The Work That Survives</span><span>05 · Autonomy and the record</span></div>
+    <div class="dialwrap">
+      <div class="viz anim d2">
+        <div class="barsrow">
+          <div class="dcol">
+            <div class="dtrack"><div class="dfill capgray" id="capGray"></div><div class="dfill cap" id="capBlue"></div><div class="captick" id="capTickC"></div></div>
+            <input type="range" id="capRange" min="0" max="100" value="80" aria-label="capability">
+            <span class="label">Capability</span>
+          </div>
+          <div class="dcol">
+            <div class="dtrack"><div class="dfill rec" id="recFill"></div><div class="captick" id="capTickR"></div></div>
+            <input type="range" id="recRange" min="0" max="100" value="55" aria-label="the record">
+            <span class="label">The record</span>
+          </div>
+        </div>
+      </div>
+      <div class="lede">
+        <span class="tag label anim d1" style="color:var(--sp-red)">Drag the sliders</span>
+        <div class="readout anim d2"><span id="effNum">55</span>%<small>Effective autonomy</small></div>
+        <p class="dcap anim d3" id="dialCap"></p>
+        <div class="dbtns anim d4">
+          <button id="gapBtn">A gap opens</button>
+          <button id="rebuildBtn">Earn it back</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 CLOSING -->
+  <section class="view closing inv" data-view="6">
+    <div class="runhead"><span>The Work That Survives</span><span>06 · What survives</span></div>
+    <div class="close-grid">
+      <div class="close-text">
+        <h2 class="head anim d1">The work that survives automation is judgment, and the duty to answer for it.</h2>
+        <p class="anim d2">A model can write the document. It cannot be the name on it. Build the function around the work that survives.</p>
+        <div class="label anim d3">The Work That Survives · June 2026</div>
+      </div>
+      <div class="close-block" aria-hidden="true"></div>
+    </div>
+  </section>
+
+</div>
+
+<div class="hint" id="hint">&#8592; / &#8594; to move</div>
+<nav class="nav" id="nav"></nav>
+
+<script>
+(function(){
+  "use strict";
+  var views = Array.prototype.slice.call(document.querySelectorAll('.view'));
+  var titles = ["Cover","The floor rises","Three kinds of work","Where the technology is","The trip-wire","Autonomy and the record","What survives"];
+  var N = views.length;
+  var current = 0, gen = 0;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var ease = function(t){ return 1 - Math.pow(1-t,3); };
+
+  function runRAF(dur, upd, g, done){
+    if(reduce){ upd(1); if(done) done(); return; }
+    var s = performance.now();
+    function f(now){
+      if(g !== gen) return;
+      var t = Math.min(1, (now - s)/dur);
+      upd(ease(t));
+      if(t < 1) requestAnimationFrame(f); else if(done) done();
+    }
+    requestAnimationFrame(f);
+  }
+
+  /* ---------- nav ---------- */
+  var nav = document.getElementById('nav');
+  var prev = document.createElement('button'); prev.className='arrow'; prev.innerHTML='&#8592;';
+  prev.onclick=function(){ showView(current-1); };
+  nav.appendChild(prev);
+  var navBtns = [];
+  titles.forEach(function(t,i){
+    var b = document.createElement('button');
+    b.innerHTML = '<span class="num">'+(i<10?'0':'')+i+'</span><span class="ttl">'+t+'</span>';
+    b.onclick = function(){ showView(i); };
+    nav.appendChild(b); navBtns.push(b);
+  });
+  var sp=document.createElement('span'); sp.className='spacer'; nav.appendChild(sp);
+  var next = document.createElement('button'); next.className='arrow'; next.innerHTML='&#8594;';
+  next.onclick=function(){ showView(current+1); };
+  nav.appendChild(next);
+
+  /* ---------- floor view ---------- */
+  var PT=30, PB=380, sb=document.getElementById('surviveBand'),
+      fr=document.getElementById('floorRegion'), fl=document.getElementById('floorLine'),
+      flbl=document.getElementById('floorLbl'), slbl=document.getElementById('surviveLbl'),
+      plbl=document.getElementById('prodLbl'), sqs=document.querySelectorAll('#floorSvg .sq');
+  function setFloor(ft){
+    sb.setAttribute('height', Math.max(0, ft-PT));
+    fr.setAttribute('y', ft); fr.setAttribute('height', Math.max(0, PB-ft));
+    fl.setAttribute('y1', ft); fl.setAttribute('y2', ft);
+    flbl.setAttribute('y', ft-8);
+    slbl.setAttribute('y', PT + Math.min(30, (ft-PT)/2) + 6);
+    plbl.setAttribute('y', ft + Math.min(28, (PB-ft)/2) + 4);
+    for(var i=0;i<sqs.length;i++){
+      var y = +sqs[i].getAttribute('data-y');
+      var o = ft <= y ? Math.max(0, 1 - (y-ft)/45) : 1;
+      sqs[i].setAttribute('opacity', o);
+    }
+  }
+
+  /* ---------- three kinds ---------- */
+  var laneEls = document.querySelectorAll('#lanes .lane');
+  var laneText = [
+    "Commodity is high volume with one defensible answer. You wrote the standard, turned it on, and sample the output. You were not there for any one document, and you can still answer for all of them.",
+    "Craft is where good depends on the counterparty and the company's appetite for risk. The machine drafts the options, you make the call before it goes out. The value stops being the draft and becomes the read.",
+    "Custody is where someone has to answer. Signing, binding the company, the privileged call, the board minutes. You stay in, all the way in, even when the model is better at the analysis. A model can write the document. It cannot be the name on it."
+  ];
+  var laneDetail = document.getElementById('laneDetail');
+  var lanesBox = document.getElementById('lanes');
+  laneEls.forEach(function(l){
+    l.addEventListener('click', function(){
+      var i = +l.getAttribute('data-i');
+      laneDetail.textContent = laneText[i];
+      lanesBox.classList.add('dimmed');
+      laneEls.forEach(function(x){ x.classList.toggle('sel', x===l); });
+    });
+  });
+  // stagger lane fills
+  laneEls[0].querySelector('.lane-fill').style.transitionDelay='.10s';
+  laneEls[1].querySelector('.lane-fill').style.transitionDelay='.22s';
+  laneEls[2].querySelector('.lane-fill').style.transitionDelay='.34s';
+  laneEls[0].querySelector('.lane-human').style.transitionDelay='.55s';
+  laneEls[1].querySelector('.lane-human').style.transitionDelay='.67s';
+  laneEls[2].querySelector('.lane-human').style.transitionDelay='.79s';
+
+  /* ---------- tech bars ---------- */
+  var gdpvalBar=document.getElementById('gdpvalBar'), harveyBar=document.getElementById('harveyBar');
+  function resetTech(){ gdpvalBar.style.height='0'; harveyBar.style.height='0';
+    document.querySelectorAll('.metr .seg').forEach(function(s){ s.style.width='0'; }); }
+  function animTech(){
+    gdpvalBar.style.height='48%';
+    harveyBar.style.height='9%';
+    document.querySelectorAll('.metr .seg').forEach(function(s){ s.style.width=s.style.getPropertyValue('--w'); });
+  }
+
+  /* ---------- tripwire ---------- */
+  var score=2, wires=[false,false,false];
+  var meter=document.getElementById('meter'), scoreVal=document.getElementById('scoreVal');
+  for(var m=0;m<8;m++){ var i=document.createElement('i'); meter.appendChild(i); }
+  var meterCells=meter.querySelectorAll('i');
+  var token=document.getElementById('twToken'), twWire=document.getElementById('twWire'),
+      twStatus=document.getElementById('twStatus');
+  var tokenPos={x:44,y:170};
+  function renderMeter(){ for(var k=0;k<8;k++) meterCells[k].classList.toggle('on', k<score); scoreVal.textContent=score; }
+  function destOf(){
+    var fired=[]; if(wires[0])fired.push("Binding the company"); if(wires[1])fired.push("Privilege"); if(wires[2])fired.push("A severe tail");
+    if(fired.length) return {lane:'custody', y:50, fired:fired};
+    if(score<=3) return {lane:'commodity', y:270, fired:null};
+    return {lane:'craft', y:160, fired:null};
+  }
+  function statusText(d){
+    if(d.lane==='custody' && d.fired) return "<b>"+d.fired.join(" and ")+"</b> trips the wire. Straight to Custody, in the loop, no matter the score.";
+    if(d.lane==='commodity') return "Low across the board. <b>Commodity</b>, over the loop. An agent runs it; you sample the output.";
+    return "Judgment is a sum, and it is rising. <b>Craft</b>, on the loop. The machine drafts, you decide before it goes out.";
+  }
+  function routeTripwire(g, animate){
+    var d=destOf();
+    var targetX = d.lane==='craft' ? 470 : (d.lane==='commodity' ? 470 : 470);
+    var targetY = d.y;
+    twStatus.innerHTML = statusText(d);
+    // wire flash for custody-by-duty
+    if(d.lane==='custody' && d.fired){ twWire.setAttribute('opacity','1'); twWire.setAttribute('x1',300); twWire.setAttribute('x2',300); twWire.setAttribute('y1',184); twWire.setAttribute('y2',90); }
+    else { twWire.setAttribute('opacity','0'); }
+    token.setAttribute('fill', d.lane==='custody'?'#FF0000':(d.lane==='craft'?'#000':'#000'));
+    var sx=tokenPos.x, sy=tokenPos.y;
+    if(!animate || reduce){ tokenPos={x:targetX,y:targetY}; token.setAttribute('x',targetX); token.setAttribute('y',targetY); return; }
+    runRAF(820, function(p){
+      var x=sx+(targetX-sx)*p, y=sy+(targetY-sy)*p;
+      token.setAttribute('x',x); token.setAttribute('y',y);
+    }, g, function(){ tokenPos={x:targetX,y:targetY}; });
+  }
+  document.getElementById('plus').onclick=function(){ if(score<8){score++; renderMeter(); routeTripwire(gen,true);} };
+  document.getElementById('minus').onclick=function(){ if(score>0){score--; renderMeter(); routeTripwire(gen,true);} };
+  document.querySelectorAll('#wires .wire').forEach(function(b){
+    b.onclick=function(){ var w=+b.getAttribute('data-w'); wires[w]=!wires[w]; b.classList.toggle('on',wires[w]); routeTripwire(gen,true); };
+  });
+
+  /* ---------- dial ---------- */
+  var capRange=document.getElementById('capRange'), recRange=document.getElementById('recRange');
+  var capBlue=document.getElementById('capBlue'), capGray=document.getElementById('capGray'),
+      recFill=document.getElementById('recFill'), capTickC=document.getElementById('capTickC'),
+      capTickR=document.getElementById('capTickR'), effNum=document.getElementById('effNum'),
+      dialCap=document.getElementById('dialCap');
+  function renderDial(){
+    var cap=+capRange.value, rec=+recRange.value, eff=Math.min(cap,rec);
+    capBlue.style.height=eff+'%';
+    capGray.style.bottom=eff+'%'; capGray.style.height=Math.max(0,cap-eff)+'%';
+    recFill.style.height=rec+'%';
+    capTickC.style.bottom=eff+'%'; capTickR.style.bottom=eff+'%';
+    effNum.textContent=eff;
+    if(rec<cap) dialCap.innerHTML="Capped by the record. "+(cap-eff)+" points of capability you cannot answer for, so you cannot grant it.";
+    else dialCap.innerHTML="The record covers the capability. Autonomy is fully backed by what you can stand behind.";
+  }
+  capRange.addEventListener('input', renderDial);
+  recRange.addEventListener('input', renderDial);
+  function animRecTo(v, dur, g){
+    var s=+recRange.value;
+    runRAF(dur, function(p){ recRange.value=Math.round(s+(v-s)*p); renderDial(); }, g);
+  }
+  document.getElementById('gapBtn').onclick=function(){ var eff=Math.min(+capRange.value,+recRange.value); animRecTo(Math.max(5,eff-32), 240, gen); };
+  document.getElementById('rebuildBtn').onclick=function(){ animRecTo(Math.min(100,+capRange.value), 2000, gen); };
+
+  /* ---------- view switching ---------- */
+  function resetView(n){
+    if(n===1){ setFloor(350); }
+    if(n===3){ resetTech(); }
+    if(n===4){ tokenPos={x:44,y:170}; token.setAttribute('x',44); token.setAttribute('y',170); twWire.setAttribute('opacity','0'); }
+  }
+  function animateView(n, g){
+    if(n===1){ runRAF(1700, function(p){ setFloor(350+(140-350)*p); }, g); }
+    if(n===3){ requestAnimationFrame(function(){ animTech(); }); }
+    if(n===4){ routeTripwire(g, true); }
+    if(n===5){ renderDial(); }
+  }
+  function showView(n){
+    n=(n%N+N)%N; current=n; gen++; var g=gen;
+    views.forEach(function(v,i){ v.classList.toggle('active', i===n); if(i!==n) v.classList.remove('play'); });
+    navBtns.forEach(function(b,i){ b.classList.toggle('on', i===n); });
+    var v=views[n];
+    resetView(n);
+    void v.offsetWidth;
+    v.classList.add('play');
+    animateView(n, g);
+    document.getElementById('hint').style.opacity = n===0 ? '.4' : '0';
+  }
+
+  document.addEventListener('keydown', function(e){
+    if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key===' '){ showView(current+1); e.preventDefault(); }
+    else if(e.key==='ArrowLeft'||e.key==='ArrowUp'){ showView(current-1); e.preventDefault(); }
+    else if(/^[1-7]$/.test(e.key)){ showView(+e.key-1); }
+  });
+
+  // init
+  renderMeter(); routeTripwire(0,false); renderDial();
+  showView(0);
+})();
+</script>
+</body>
+</html>

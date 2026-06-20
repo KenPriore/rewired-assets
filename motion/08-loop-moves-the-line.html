@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The loop that moves the line — motion study</title>
+<style>
+  :root{--white:#FFFFFF;--black:#000000;--red:#FF0000;--blue:#0057B8;--yellow:#FFCC00;--soft:#444;--line:#cfcfcf;--sans:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--white);color:var(--black);font-family:var(--sans);-webkit-font-smoothing:antialiased;display:flex;align-items:center;justify-content:center;min-height:100%;padding:18px}
+  main{width:min(720px,94vw)}
+  canvas{width:100%;aspect-ratio:16/9;display:block;background:var(--white)}
+  .cap{margin-top:12px;font-size:13.5px;color:var(--soft);line-height:1.45}
+  .cap .num{font-weight:800;color:var(--red);margin-right:8px}
+  .cap b{color:var(--black);font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+  .rec{margin-top:12px;appearance:none;border:2px solid var(--black);background:var(--white);font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:8px 12px;cursor:pointer;color:var(--black)}
+  .rec[disabled]{opacity:.6;cursor:default}
+  body.embed{padding:0} body.embed main{width:100%}
+  body.embed canvas{aspect-ratio:auto;height:100vh}
+  body.embed .cap,body.embed .rec{display:none}
+</style>
+</head>
+<body>
+<main>
+  <canvas id="c"></canvas>
+  <div class="cap"><span class="num">08</span><b>The loop that moves the line</b> — Watch where you override the machine. As work settles, the line keeps moving and you move up.</div>
+  <button class="rec" id="rec">● record 10s clip</button>
+</main>
+<script>
+const TAU=Math.PI*2;
+const WHITE='#FFFFFF',BLACK='#000000',RED='#FF0000',BLUE='#0057B8',YELLOW='#FFCC00',SOFT='#444444',LINE='#cfcfcf',BLUET='#d6e4f3',YELLT='#fbeeb0';
+const PAPER=WHITE, INK=BLACK, CARD=WHITE;
+const lerp=(a,b,k)=>a+(b-a)*k, clamp=(a,b,c)=>Math.max(a,Math.min(c,b));
+const easeOut=t=>1-Math.pow(1-t,3), easeIn=t=>t*t, easeInOut=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const saw=(t,p)=>((t%p)+p)%p/p, tri=(t,p)=>{const x=saw(t,p);return x<.5?x*2:2-x*2;}, osc=(t,p,ph=0)=>Math.sin((t/p+ph)*TAU)*.5+.5;
+function rr(ctx,x,y,w,h,r){ctx.beginPath(); if(ctx.roundRect)ctx.roundRect(x,y,w,h,r); else{ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}}
+function doc(ctx,x,y,r,kind,check){ctx.save();ctx.translate(x,y); if(kind==='commodity'){ctx.fillStyle=BLUE;ctx.fillRect(-r,-r,2*r,2*r);} else if(kind==='craft'){ctx.fillStyle=YELLOW;ctx.fillRect(-r,-r,2*r,2*r);ctx.lineWidth=1.5;ctx.strokeStyle=BLACK;ctx.strokeRect(-r,-r,2*r,2*r);} else{ctx.fillStyle=RED;ctx.fillRect(-r,-r,2*r,2*r);} if(check){ctx.strokeStyle=WHITE;ctx.lineWidth=1.8;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-r*.4,0);ctx.lineTo(-r*.05,r*.4);ctx.lineTo(r*.45,-r*.4);ctx.stroke();} ctx.restore();}
+function person(ctx,x,y,r){ctx.save();ctx.fillStyle=RED;ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill();ctx.globalAlpha=.25;ctx.fillStyle=WHITE;ctx.beginPath();ctx.arc(x-r*.32,y-r*.34,r*.3,0,TAU);ctx.fill();ctx.restore();}
+function machine(ctx,x,y,s,t){ctx.save();ctx.fillStyle=BLACK;ctx.fillRect(x-s,y-s,2*s,2*s);ctx.strokeStyle=WHITE;ctx.lineWidth=2;const k=t*2;for(let i=0;i<3;i++){const yy=y-s*.5+i*s*.5;const off=((k+i)%1)*s*.6-s*.3;ctx.beginPath();ctx.moveTo(x-s*.5+off,yy);ctx.lineTo(x-s*.1+off,yy);ctx.stroke();}ctx.restore();}
+function mono(ctx,txt,x,y,align,color,size){ctx.save();ctx.fillStyle=color||SOFT;ctx.font='700 '+(size||9)+'px "Helvetica Neue",Helvetica,Arial,sans-serif';ctx.textAlign=align||'left';ctx.textBaseline='middle';if('letterSpacing' in ctx){try{ctx.letterSpacing='0.06em';}catch(e){}}ctx.fillText(txt,x,y);ctx.restore();}
+function dline(ctx,x1,y1,x2,y2,color,w){ctx.save();ctx.strokeStyle=color||SOFT;ctx.lineWidth=w||1.5;ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.restore();}
+function ring(ctx,x,y,r,color,a){ctx.save();ctx.globalAlpha=a==null?1:a;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.stroke();ctx.restore();}
+
+function draw(ctx,W,H,t){
+  const bx=W*0.12,bw=W*0.76,by=H*0.62,bh=15;
+  const dx=lerp(0.40,0.74,tri(t,7));
+  ctx.fillStyle=BLUET; ctx.fillRect(bx,by,bw*dx,bh);
+  ctx.fillStyle=YELLT; ctx.fillRect(bx+bw*dx,by,bw*(1-dx),bh);
+  ctx.strokeStyle=BLACK; ctx.lineWidth=1.5; ctx.strokeRect(bx,by,bw,bh);
+  ctx.strokeStyle=BLACK; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(bx+bw*dx,by); ctx.lineTo(bx+bw*dx,by+bh); ctx.stroke();
+  mono(ctx,'COMMODITY',bx,by+bh+13,'left',SOFT,8); mono(ctx,'CRAFT',bx+bw,by+bh+13,'right',SOFT,8);
+  person(ctx,bx+bw*dx,by-4,7);
+  const cx=W*0.5,cy=H*0.26,rr2=15;
+  ctx.save(); ctx.strokeStyle=SOFT; ctx.lineWidth=2; ctx.setLineDash([3,5]); ctx.lineDashOffset=-t*22;
+  ctx.beginPath(); ctx.arc(cx,cy,rr2,0.3,0.3+TAU*0.82); ctx.stroke(); ctx.restore();
+  const aa=0.3+TAU*0.82, ax=cx+Math.cos(aa)*rr2, ay=cy+Math.sin(aa)*rr2;
+  ctx.fillStyle=SOFT; ctx.beginPath(); ctx.arc(ax,ay,2.5,0,TAU); ctx.fill();
+  mono(ctx,'override ↓',cx,cy+rr2+13,'center',SOFT,8);
+}
+
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const SLUG='tws-swiss-08-loop-moves-the-line';
+const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let W=0,H=0,dpr=1;
+function resize(){ dpr=Math.min(window.devicePixelRatio||1,2); const r=cv.getBoundingClientRect(); W=r.width||720; H=r.height||405; cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); ctx.setTransform(dpr,0,0,dpr,0,0); if(reduced) render(2.2); }
+function render(t){ ctx.clearRect(0,0,W,H); const S=(H/240)||1; ctx.save(); ctx.globalAlpha=1; ctx.lineCap='butt'; ctx.setLineDash([]); ctx.scale(S,S); try{ draw(ctx,W/S,H/S,t); }catch(e){} ctx.restore(); }
+function loop(ms){ render(ms/1000); requestAnimationFrame(loop); }
+if(location.search.indexOf('embed')>=0) document.body.classList.add('embed');
+resize(); window.addEventListener('resize',resize);
+if(reduced) render(2.2); else requestAnimationFrame(loop);
+const rec=document.getElementById('rec'); let recording=false;
+function pickMime(){ if(!window.MediaRecorder) return ''; const ms=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']; for(const m of ms){ try{ if(MediaRecorder.isTypeSupported(m)) return m; }catch(e){} } return ''; }
+if(!window.MediaRecorder || !cv.captureStream || !pickMime()){ if(rec) rec.style.display='none'; }
+else rec.onclick=function(){ if(recording) return; recording=true; rec.disabled=true; rec.textContent='● recording…';
+  const stream=cv.captureStream(30), mime=pickMime(), mr=new MediaRecorder(stream,{mimeType:mime}), chunks=[];
+  mr.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
+  mr.onstop=function(){ const blob=new Blob(chunks,{type:mime}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=SLUG+'.webm'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); recording=false; rec.disabled=false; rec.textContent='● record 10s clip'; };
+  mr.start(); setTimeout(()=>{ if(mr.state!=='inactive') mr.stop(); },10000);
+};
+</script>
+</body>
+</html>
